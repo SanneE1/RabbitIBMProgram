@@ -16,6 +16,7 @@ var
   LineSplit: TStringArray;
   settings_file, Line: string;
   x,y: integer;
+  use_kmap_file: boolean;
 
 begin
   randomize; {initialize the pseudorandom number generator}
@@ -31,10 +32,8 @@ begin
   if (ParamStr(8) = '1') then
       create_all_month_maps := True;
 
-  if (ParamStr(9) <> '0') then
-    rabbit_start_file := ParamStr(12)
-  else
-    rabbit_start_file := '0';
+  {Argument 9: '0' = initialise from the carrying capacity map, otherwise the path to a start-population map}
+  rabbit_start_file := ParamStr(9);
 
   {Assign demographic variables with current run's values}
   if ParamCount > 9 then
@@ -47,8 +46,12 @@ begin
       ' and R_sigma=' + FloatToStr(R_sigma));
   end;
 
-
-
+  {Optional argument 13: random seed, to make a run reproducible}
+  if ParamCount > 12 then
+  begin
+    RandSeed := StrToInt(ParamStr(13));
+    WriteLn('Random seed = ' + IntToStr(RandSeed));
+  end;
 
 
 mapname_rabbit := ExpandFileName(mapname_rabbit);
@@ -82,7 +85,17 @@ WriteLn('Reading Maps');
 MapDimX := 0;
 MapDimY := 0;
 
-if not (habitat_folder = '0') then
+{habitat_folder can be '0' (one static map), a folder with a text map per month (<year>_<month>.txt),
+ or a single binary file with the maps of all months (see ReadKMap)}
+use_kmap_file := (habitat_folder <> '0') and FileExists(habitat_folder) and not DirectoryExists(habitat_folder);
+
+if use_kmap_file then
+  begin
+  WriteLn('K map file: ' + habitat_folder);
+  OpenKMapFile(habitat_folder);
+  HabitatMapRabbit := ReadKMap(start_year, 1);
+  end
+else if not (habitat_folder = '0') then
   begin
   WriteLn(habitat_folder + PathDelim + IntToStr(start_year) + '_01.txt');
   HabitatMapRabbit := ReadMap(habitat_folder + PathDelim + IntToStr(start_year) + '_01.txt')
@@ -142,7 +155,9 @@ for current_year := start_year to end_year do
         if create_all_month_maps then
           WritePopsizeMap((output_dir + PathDelim + 'maps' + PathDelim + 'Rabbit_Population_distribution_' + IntToStr(current_year) + '_' + IntToStr(month) + '.csv'), RabbitPopulationSpatial, mapdimX, mapdimy);
 
-        if not (habitat_folder = '0') then
+        if use_kmap_file then
+          HabitatMapRabbit := ReadKMap(current_year, month)
+        else if not (habitat_folder = '0') then
           if(month < 10) then HabitatMapRabbit := ReadMap(habitat_folder + PathDelim + IntToStr(current_year) + '_0' + IntToStr(month) + '.txt')
             else HabitatMapRabbit := ReadMap(habitat_folder + PathDelim + IntToStr(current_year) + '_' + IntToStr(month) + '.txt');
 
@@ -155,7 +170,12 @@ WriteLn('Simulation finished');
 
 for a := 0 to High(RabbitPopulationSpatial) do
   for b := 0 to High(RabbitPopulationSpatial[a]) do
-    FreeAndNil(RabbitPopulationSpatial[a, b]);
+    if RabbitPopulationSpatial[a, b] <> nil then
+    begin
+      for i := 0 to RabbitPopulationSpatial[a, b].Count - 1 do
+        Dispose(PRabbit(RabbitPopulationSpatial[a, b].Items[i]));
+      FreeAndNil(RabbitPopulationSpatial[a, b]);
+    end;
 
 end.
 

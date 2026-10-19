@@ -20,6 +20,7 @@ type           {here you declare the data structure for you individuals}
     Age: integer;      // months
     Pregnant: boolean;  // Individual pregnant?
     Lactating: boolean;
+    LastDispersalMonth: longint;  // tot_m of the month this rabbit last dispersed (0 = never)
   end;
 
 
@@ -33,11 +34,7 @@ type           {here you declare the data structure for you individuals}
 
 var
   {Simulation info}
-  current_year, n_years, start_year, end_year, month, day: integer;
-  RabbitMap: Array2DInteger;
-  max_pop_size: integer;
-  sum_pop_size: array[1..100] of integer;
-  each_pop_sizes: array of array of integer;
+  current_year, n_years, start_year, end_year, month: integer;
   output_dir, habitat_folder: string;
   create_maps_3month_maps: boolean = False;
   create_2yr_month_maps: boolean = False;
@@ -51,18 +48,18 @@ var
 
   {Rabbit - population info}
   RabbitPopulationSpatial: MapOfLists;
-  RabbitPopulation: TList;
-  Rabbit: PRabbit;
-  RabbitPopulationSize, RabbitPopulationSpatialSize: longint;
   HabitatMapRabbit: Array2Dinteger;
   paramname_rabbit: string;
   rabbit_start_file: string;
+
+  {Carrying capacity maps of all months in one binary file (see ReadKMap)}
+  kmap_file: string = '';
+  kmap_ncol, kmap_nrow, kmap_nmonths, kmap_first_year, kmap_first_month, kmap_bytes: longint;
 
   {Rabbit - Climate effects}
   BreedingMonths_xy: Array3DInteger;
   DryMonths_xy: Array3DInteger;
   mapname_rabbit, breedname, dryname, climate_folder: string;
-  nbadmonths: byte;
 
   {Rabbit - Disease mechanism}
   RHDFreq_L, RHDFreq_U: integer;
@@ -71,7 +68,6 @@ var
   tot_m: longint;
 
   {Rabbit - Demography}
-  Kdensity, KCapacity, kCapacity_low, kCapacity_high: real;
   R_lambda, R_dens_opt, R_sigma: real;                            // Dispersal parameters
   R_max_age, R_young_age, R_adult_age, R_old_age: integer;      // Ages in months
   R_disp_age: integer;
@@ -85,10 +81,6 @@ var
 
 
 const
-    days_in_month: array[1..12] of integer = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31);
-
-    L_max_steps = 100;
-
   disp_x: array[0..48] of integer = (-3, -2, -1, 0, 1, 2, 3,
                                        -3, -2, -1, 0, 1, 2, 3,
                                        -3, -2, -1, 0, 1, 2, 3,

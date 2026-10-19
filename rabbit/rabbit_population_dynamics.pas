@@ -20,6 +20,7 @@ procedure Startpopulation_rabbit;
 var
   a, x, y, n_start: integer;
   StartMap: array of array of integer;
+  Rabbit: PRabbit;
 begin
 
   if (rabbit_start_file <> '0') then
@@ -30,59 +31,60 @@ begin
     StartMap := HabitatMapRabbit;
 
   SetLength(RabbitPopulationSpatial, Mapdimx + 1, Mapdimy + 1);
-  //SetLength(RabbitMap, MapDimX + 1, MapDimY + 1);
-
-  RabbitPopulation := TList.Create;
 
   for x := 1 to Mapdimx do
   for y := 1 to Mapdimy do
   begin
 
-  if StartMap[x,y] = 0 then Continue;
+    if StartMap[x,y] = 0 then Continue;
 
-  n_start := StartMap[x,y];
+    n_start := StartMap[x,y];
 
-  RabbitPopulationSpatial[x][y] := TList.Create;
+    RabbitPopulationSpatial[x][y] := TList.Create;
 
-  with RabbitPopulationSpatial[x][y] do
-  begin
     for a := 1 to n_start do
     begin
-      new(Rabbit);
+      New(Rabbit);
 
-      Rabbit^.age := random(12);  //alternative: Individual^.age:=0;
-      if random<0.5 then
-        Rabbit^.sex:='f'
+      Rabbit^.Age := random(12);  //alternative: Age := 0;
+      if random < 0.5 then
+        Rabbit^.Sex := 'f'
       else
-        Rabbit^.sex:='m';
+        Rabbit^.Sex := 'm';
 
-      Rabbit^.Pregnant:=False;
-      Rabbit^.Lactating:= False;
+      Rabbit^.Pregnant := False;
+      Rabbit^.Lactating := False;
+      Rabbit^.LastDispersalMonth := 0;
 
-      RabbitPopulationSpatial[x][y].add(Rabbit);
+      RabbitPopulationSpatial[x][y].Add(Rabbit);
     end;
-  end;
-
   end;
 end;
 
 procedure Rabbit_monthly_demography(current_year, m: integer);
 var
   b, x, y: integer;
-  temp_pop: TList;
+  Pop: TList;
+  Kdens: real;
 begin
 
   for x := 1 to MapdimX do
   for y := 1 to MapdimY do
   begin
 
+    Pop := RabbitPopulationSpatial[x][y];
+
     if HabitatMapRabbit[x,y] = 0 then
     begin
-      RabbitPopulationSpatial[x][y] := nil;
+      {Cell is (no longer) habitable: remove its rabbits}
+      if Pop <> nil then
+      begin
+        for b := 0 to Pop.Count - 1 do
+          Dispose(PRabbit(Pop.Items[b]));
+        FreeAndNil(RabbitPopulationSpatial[x][y]);
+      end;
       Continue;
     end;
-
-    kCapacity := HabitatMapRabbit[x,y];
 
     if (Length(DryMonths_xy[x,y]) = 0) or (Length(BreedingMonths_xy[x,y]) = 0) then
     begin
@@ -90,49 +92,24 @@ begin
       Continue;
     end;
 
-    RabbitPopulation := RabbitPopulationSpatial[x][y];
-    if RabbitPopulation = nil then Continue;
+    if Pop = nil then Continue;
 
-    RabbitPopulationSize := 0;
-    RabbitPopulationSize := RabbitPopulation.Count;
+    if (Pop.Count > 0) and (tot_m >= RHDData[x,y].NextOutbreakMonth) then
+      ApplyRHD(Pop, x, y, tot_m);
 
-    nbadmonths:= DryMonths_xy[x,y,m];
+    // Density as fraction of carrying capacity; the habitat map holds rabbits per 25 ha cell (500x500 m)
+    Kdens := Pop.Count / HabitatMapRabbit[x,y];
 
-    if (RabbitPopulationSize > 0) and (tot_m >= RHDData[x,y].NextOutbreakMonth) then
-    begin
-      ApplyRHD(x, y, tot_m);
-      RabbitPopulationSize := RabbitPopulation.Count;
-    end;
+    Reproduction(Pop, BreedingMonths_xy[x,y,m], Kdens);
+    Survival(Pop, Kdens, DryMonths_xy[x,y,m]);   // Survival needs the density and the number of dry months
 
-
-    Kdensity:=(RabbitPopulationSize)/kCapacity;
-        // Zulima's code has (populationsize/5)/kCapacity - but that's because reporting was done at a 5ha scale
-        // Currently in the code, we're not calculating # of individuals in the cell, but the Density (#Rabbits/ha)
-        // We have a resolution of 25ha per cell (500x500 m).
-
-    reproduction(BreedingMonths_xy[x,y,m]);   //call procedure for reproduction
-    RabbitPopulationSize := RabbitPopulation.Count;
-
-    survival;       //call procedure for survival - This needs Kdensity and nbadmonths
-
-        {Aging}
-    RabbitPopulationSize := RabbitPopulation.Count;
-
-    if RabbitPopulationSize > 0 then
-    with RabbitPopulation do
-    for b := 0 to RabbitPopulationSize - 1 do
-    begin
-      Rabbit := Items[b];
-      Rabbit^.Age := Rabbit^.Age + 1;
-    end;
-
-    end;
-    {With the whole spatial population, start distribution}
-    Dispersal;
-
-   //GetAbundanceMap(RabbitPopulationSpatial, output_dir + PathDelim + 'Rabbit_population_size.csv', current_year, m);
-
+    {Aging}
+    for b := 0 to Pop.Count - 1 do
+      Inc(PRabbit(Pop.Items[b])^.Age);
   end;
 
-end.
+  {With the whole spatial population, start distribution}
+  Dispersal;
+end;
 
+end.
