@@ -55,17 +55,15 @@
         <Filename Value="rabbit\rabbit_population_dynamics.pas"/>
         <EditorIndex Value="1"/>
         <TopLine Value="113"/>
-        <CursorPos Y="131"/>
-        <FoldState Value=" T3I0m\"/>
+        <CursorPos Y="115"/>
         <UsageCount Value="100"/>
         <Loaded Value="True"/>
       </Unit>
       <Unit>
         <Filename Value="rabbit\rabbit_vital_rates.pas"/>
         <EditorIndex Value="2"/>
-        <TopLine Value="282"/>
-        <CursorPos X="34" Y="299"/>
-        <FoldState Value=" T3K0{C2 PkVkA0Z"/>
+        <TopLine Value="232"/>
+        <CursorPos X="34" Y="231"/>
         <UsageCount Value="100"/>
         <Loaded Value="True"/>
       </Unit>

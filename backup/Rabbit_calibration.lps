@@ -4,7 +4,7 @@
     <PathDelim Value="\"/>
     <Version Value="12"/>
     <ManyBuildModesSelection Value="Debug,Release,Release_Linux,Release_MacOS_aarch64,Release_MacOS_intel"/>
-    <BuildModes Active="Debug"/>
+    <BuildModes Active="Release_MacOS_intel"/>
     <Units>
       <Unit>
         <Filename Value="Rabbit_calibration.lpr"/>
@@ -53,27 +53,26 @@
       </Unit>
       <Unit>
         <Filename Value="rabbit\rabbit_population_dynamics.pas"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="1"/>
         <TopLine Value="113"/>
-        <CursorPos Y="131"/>
-        <FoldState Value=" T3I0m\"/>
+        <CursorPos Y="115"/>
         <UsageCount Value="100"/>
         <Loaded Value="True"/>
       </Unit>
       <Unit>
         <Filename Value="rabbit\rabbit_vital_rates.pas"/>
         <EditorIndex Value="2"/>
-        <TopLine Value="282"/>
-        <CursorPos X="34" Y="299"/>
-        <FoldState Value=" T3K0{C2 PkVkA0Z"/>
+        <TopLine Value="232"/>
+        <CursorPos X="34" Y="231"/>
         <UsageCount Value="100"/>
         <Loaded Value="True"/>
       </Unit>
       <Unit>
         <Filename Value="general_functions.pas"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="4"/>
-        <CursorPos X="47" Y="70"/>
+        <TopLine Value="44"/>
+        <CursorPos Y="57"/>
         <UsageCount Value="140"/>
         <Loaded Value="True"/>
       </Unit>
@@ -86,7 +85,7 @@
         <Loaded Value="True"/>
       </Unit>
     </Units>
-    <JumpHistory HistoryIndex="28">
+    <JumpHistory HistoryIndex="29">
       <Position>
         <Filename Value="rabbit\rabbit_vital_rates.pas"/>
         <Caret Line="92" Column="35" TopLine="80"/>
@@ -202,6 +201,10 @@
       <Position>
         <Filename Value="rabbit\rabbit_population_dynamics.pas"/>
         <Caret Line="103" Column="13" TopLine="84"/>
+      </Position>
+      <Position>
+        <Filename Value="rabbit\rabbit_population_dynamics.pas"/>
+        <Caret Line="131" TopLine="113"/>
       </Position>
     </JumpHistory>
     <RunParams>
