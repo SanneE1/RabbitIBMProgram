@@ -19,9 +19,8 @@ unit rabbit_settings;
  in the file (or twice on the command line) stop the program. Numbers always use '.' as
  decimal mark, whatever the locale.
 
- The old positional arguments (1-14) are still accepted, with a warning, when the first argument
- does not start with --; there, argument 14 is still an RHD settings file, read after the rates
- file. See model_settings.md.}
+ Positional arguments (the interface before settings interface 2) are not accepted: every
+ argument must be --name=value. See model_settings.md.}
 
 {$mode ObjFPC}{$H+}
 
@@ -63,9 +62,7 @@ var
   Settings: array of TSetting;
   FmtDot: TFormatSettings;
   rates_file_arg: string = '';
-  legacy_rhd_file: string = '';   // positional argument 14 (deprecated form only)
   cmd_names, cmd_values: array of string;
-  legacy_args: boolean = False;
 
 
 {---- errors ---------------------------------------------------------------------------------}
@@ -385,11 +382,6 @@ begin
     rates_file_arg := AValue;
     Exit;
   end;
-  if (AName = 'legacy_rhd_file') and legacy_args then   // positional argument 14 only
-  begin
-    if AValue <> '0' then legacy_rhd_file := AValue;
-    Exit;
-  end;
   for i := 0 to High(cmd_names) do
     if cmd_names[i] = AName then Fail('--' + AName + ' is given twice on the command line');
   n := Length(cmd_names);
@@ -397,29 +389,6 @@ begin
   SetLength(cmd_values, n + 1);
   cmd_names[n] := AName;
   cmd_values[n] := AValue;
-end;
-
-{The old interface: 9 to 14 positional arguments}
-procedure ReadLegacyArguments;
-const
-  NAMES: array[1..14] of string = ('output_dir', 'start_year', 'end_year', 'rates_file',
-    'mapname_rabbit', 'habitat_folder', 'climate_folder', 'create_all_month_maps',
-    'rabbit_start_file', 'dens_opt', 'lambda', 'sigma', 'seed', 'legacy_rhd_file');
-var
-  i: integer;
-begin
-  legacy_args := True;
-  WriteLn('Warning: positional arguments are deprecated and will be removed; use --name=value ',
-          '(see model_settings.md)');
-  if (ParamCount < 9) or (ParamCount > 14) then
-    Fail('The positional form needs 9 to 14 arguments, not ' + IntToStr(ParamCount) +
-         '. Use --name=value arguments instead (--help lists them)');
-  for i := 1 to ParamCount do
-  begin
-    if AnsiStartsStr('--', ParamStr(i)) then
-      Fail('Positional and --name=value arguments cannot be mixed (argument ' + IntToStr(i) + ')');
-    AddCommandValue(NAMES[i], ParamStr(i));
-  end;
 end;
 
 procedure ReadNamedArguments;
@@ -431,8 +400,8 @@ begin
   begin
     arg := ParamStr(i);
     if not AnsiStartsStr('--', arg) then
-      Fail('Argument ' + IntToStr(i) + ' "' + arg + '" is not --name=value; positional and named ' +
-           'arguments cannot be mixed');
+      Fail('Argument ' + IntToStr(i) + ' "' + arg + '" is not --name=value. Positional arguments ' +
+           'are no longer supported; --help lists the settings (see model_settings.md)');
     body := Copy(arg, 3, MaxInt);
     if body = 'version' then begin PrintVersion; Halt(0); end;
     if body = 'help' then begin PrintHelp; Halt(0); end;
@@ -454,15 +423,12 @@ begin
     Fail('No arguments given');
   end;
 
-  if AnsiStartsStr('--', ParamStr(1)) then ReadNamedArguments
-  else ReadLegacyArguments;
+  ReadNamedArguments;
 
   if rates_file_arg = '' then Fail('--rates_file is required');
 
-  {2. the rates file (positional form: then the RHD file of argument 14), 3. the command line}
+  {2. the rates file, 3. the command line}
   ReadSettingsFile(ExpandFileName(rates_file_arg));
-  if legacy_rhd_file <> '' then
-    ReadSettingsFile(ExpandFileName(legacy_rhd_file));
   for i := 0 to High(cmd_names) do
     SetSetting(cmd_names[i], cmd_values[i], 'command line');
 end;

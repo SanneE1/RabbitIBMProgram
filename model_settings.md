@@ -56,14 +56,13 @@ Rabbit_x86_64-win64.exe --output_dir=sim --start_year=2017 --end_year=2024
   arguments, and `model_param_settings()` turns calibrated parameters (`R_lambda`, `log10_RHD_spark`,
   `RHDMort`, …) into setting names.
 
-**Deprecated: positional arguments.** When the first argument does not start with `--`, the old
-form of 9 to 14 positional arguments is still accepted, with a warning: 1 `output_dir`,
-2 `start_year`, 3 `end_year`, 4 `rates_file`, 5 `mapname_rabbit`, 6 `habitat_folder`,
-7 `climate_folder`, 8 `create_all_month_maps`, 9 `rabbit_start_file`, 10 `dens_opt`, 11 `lambda`,
-12 `sigma`, 13 `seed`, 14 an RHD settings file (`0` = none; read after the rates file, only in this
-form). They count as command line values, and give
-output identical to the old program. Positional and named arguments cannot be mixed. This form will
-be removed once the R code and the LifeWatch components use named arguments.
+**Positional arguments are no longer accepted**: an argument that does not start with `--` stops
+the program. To convert an old call, the positions were: 1 `output_dir`, 2 `start_year`,
+3 `end_year`, 4 `rates_file`, 5 `mapname_rabbit`, 6 `habitat_folder`, 7 `climate_folder`,
+8 `create_all_month_maps`, 9 `rabbit_start_file`, 10 `dens_opt`, 11 `lambda`, 12 `sigma`,
+13 `seed`; the RHD settings file of position 14 has no replacement: give its settings as
+`--name=value` (or put them in the rates file). With the same seed and settings the named call
+gives output identical to the old program.
 
 ## Run settings
 
