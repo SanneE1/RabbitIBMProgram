@@ -17,6 +17,8 @@ var
   settings_file, Line: string;
   x,y: integer;
   use_kmap_file: boolean;
+  cli_dispersal: boolean = False;
+  cli_dens_opt, cli_lambda, cli_sigma: real;
 
 begin
   randomize; {initialize the pseudorandom number generator}
@@ -35,23 +37,27 @@ begin
   {Argument 9: '0' = initialise from the carrying capacity map, otherwise the path to a start-population map}
   rabbit_start_file := ParamStr(9);
 
-  {Assign demographic variables with current run's values}
+  {Dispersal parameters of the current run (arguments 10-12). They are applied after the parameter
+   file is read, which also holds lambda, dens_opt and sigma; before, the file values overwrote
+   these and the command line values had no effect.}
   if ParamCount > 9 then
   begin
-   R_dens_opt := StrToInt(ParamStr(10));
-   Val(Trim(ParamStr(11)), R_lambda);
-   Val(Trim(ParamStr(12)), R_sigma);
-   WriteLn('Reading parameters from command line');
-   WriteLn('Dens_opt=' + FloatToStr(R_dens_opt) + ' and R_lambda:' + FloatToStr(R_lambda) +
-      ' and R_sigma=' + FloatToStr(R_sigma));
+   cli_dispersal := True;
+   cli_dens_opt := StrToInt(ParamStr(10));
+   Val(Trim(ParamStr(11)), cli_lambda);
+   Val(Trim(ParamStr(12)), cli_sigma);
   end;
 
-  {Optional argument 13: random seed, to make a run reproducible}
-  if ParamCount > 12 then
+  {Optional argument 13: random seed, to make a run reproducible (-1 = no fixed seed)}
+  if (ParamCount > 12) and (StrToInt(ParamStr(13)) <> -1) then
   begin
     RandSeed := StrToInt(ParamStr(13));
     WriteLn('Random seed = ' + IntToStr(RandSeed));
   end;
+
+  {Optional argument 14: RHD settings file ('0' = none; see docs/model_settings.md)}
+  if ParamCount > 13 then
+    rhd_settings_file := ParamStr(14);
 
 
 mapname_rabbit := ExpandFileName(mapname_rabbit);
@@ -77,6 +83,22 @@ n_years := (end_year - start_year) + 1;
 WriteLn('Reading Rabbit parameters');
 paramname_rabbit := ExpandFileName(paramname_rabbit);
 ReadParameters_Rabbit(paramname_rabbit);
+
+if cli_dispersal then
+begin
+  R_dens_opt := cli_dens_opt;
+  R_lambda := cli_lambda;
+  R_sigma := cli_sigma;
+  WriteLn('Dispersal parameters from the command line: dens_opt=' + FloatToStr(R_dens_opt) +
+          ', lambda=' + FloatToStr(R_lambda) + ', sigma=' + FloatToStr(R_sigma));
+end;
+
+if rhd_settings_file <> '0' then
+begin
+  rhd_settings_file := ExpandFileName(rhd_settings_file);
+  WriteLn('Reading RHD settings: ' + rhd_settings_file);
+  ReadParameters_RHD(rhd_settings_file);
+end;
 
 
 
@@ -116,18 +138,7 @@ WriteLn('Start rabbit population');
 Startpopulation_rabbit;
 
 WriteLn('Set up disease objects');
-tot_m := 0;
-SetLength(RHDData, MapdimX + 1, MapdimY + 1);
-for x := 1 to MapdimX do
-  for y := 1 to MapdimY do
-  begin
-    if HabitatMapRabbit[x,y] > 0 then
-    begin
-      RHDData[x,y].OutbreakFrequency := RHDFreq_L + Random(RHDFreq_U - RHDFreq_L + 1);                         // Random frequency: 24-36 months (2-3 years)
-      RHDData[x,y].OutbreakMortality := RHDMort_L + Random * (RHDMort_U - RHDMort_L);                    // Random severity: 15-25% mortality
-      RHDData[x,y].NextOutbreakMonth := Random(RHDData[x,y].OutbreakFrequency);  // Random initial timing (stagger outbreaks across cells)
-    end;
-  end;
+SetupRHD;
 
 WriteLn('Start simulation');
 
@@ -166,6 +177,8 @@ for current_year := start_year to end_year do
 
 
 WriteLn('Simulation finished');
+
+if (RHD_mode = RHD_MODE_IMMUNITY) and RHD_log then CloseRHDLogs;
 
 
 for a := 0 to High(RabbitPopulationSpatial) do

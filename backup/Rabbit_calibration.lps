@@ -10,7 +10,8 @@
         <Filename Value="Rabbit_calibration.lpr"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="Rabbit_population_simulation"/>
-        <TopLine Value="121"/>
+        <IsVisibleTab Value="True"/>
+        <TopLine Value="43"/>
         <CursorPos Y="5"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
@@ -69,9 +70,8 @@
       </Unit>
       <Unit>
         <Filename Value="general_functions.pas"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="4"/>
-        <TopLine Value="44"/>
+        <TopLine Value="43"/>
         <CursorPos Y="57"/>
         <UsageCount Value="140"/>
         <Loaded Value="True"/>
