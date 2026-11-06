@@ -47,9 +47,12 @@ const
   RHD_MODE_IMMUNITY = 2;
 
 var
-  {Simulation info}
+  {Simulation info. All settings are set through the registry in rabbit/rabbit_settings.pas
+   (rates file, --settings files, --name=value); see model_settings.md}
   current_year, n_years, start_year, end_year, month: integer;
-  output_dir, habitat_folder: string;
+  output_dir: string;
+  habitat_folder: string = '0';
+  seed: longint = -1;                // random seed; -1 = none
   create_maps_3month_maps: boolean = False;
   create_2yr_month_maps: boolean = False;
   rabbit_census_maps: boolean = True;
@@ -63,8 +66,7 @@ var
   {Rabbit - population info}
   RabbitPopulationSpatial: MapOfLists;
   HabitatMapRabbit: Array2Dinteger;
-  paramname_rabbit: string;
-  rabbit_start_file: string;
+  rabbit_start_file: string = '0';
 
   {Carrying capacity maps of all months in one binary file (see ReadKMap)}
   kmap_file: string = '';
@@ -81,9 +83,8 @@ var
   RHDData: array of array of TRHDCellData;
   tot_m: longint;
 
-  {Rabbit - Disease mechanism, read from the RHD settings file (command line argument 14).
-   See rabbit_input_output_functions.ReadParameters_RHD and docs/model_settings.md}
-  rhd_settings_file: string = '0';
+  {Rabbit - Disease mechanism (immunity mode). Defaults below; set in the rates file, a
+   --settings file or on the command line. See model_settings.md}
   RHD_mode: integer = RHD_MODE_SCHEDULE;
   RHD_min_age: integer = 3;          // minimum age (months, before this month's ageing) to be susceptible
   RHD_f_crit: real = 0.5;            // susceptible share at which an exposed cell has a 50% outbreak chance
@@ -110,7 +111,7 @@ var
   R_lambda, R_dens_opt, R_sigma: real;                            // Dispersal parameters
   R_max_age, R_young_age, R_adult_age, R_old_age: integer;      // Ages in months
   R_disp_age: integer;
-  R_MeanLitSize, R_SdLitSize: real;                            // R_SdLitSize: no longer used
+  R_MeanLitSize: real;
   R_MinLitSize: integer = 1;                                    // litter size limits (kits)
   R_MaxLitSize: integer = 9;
   R_r_int, R_r_dens_effect, R_r_second_effect, R_r_later_effect: real;

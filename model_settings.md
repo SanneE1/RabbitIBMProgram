@@ -1,10 +1,11 @@
 # Rabbit model: settings reference
 
-*2 November 2026, for the Pascal program on branch `rhd-immunity` of `rabbit/Pascal_program`.*
+*6 November 2026, for the Pascal program on branch `named-model-settings` of `rabbit/Pascal_program`
+(settings interface 2).*
 
-All inputs of the rabbit model in one place: the command line arguments of the Pascal program, the
-demographic rates file, the RHD settings file, and the habitat and dispersal parameters that the
-calibration estimates. **TODO** marks a cell we don't have enough information to fill in.
+All inputs of the rabbit model in one place: how settings are passed, the run settings, the
+demographic rates, the RHD settings, and the habitat and dispersal parameters that the calibration
+estimates. **TODO** marks a cell we don't have enough information to fill in.
 
 - **Default** is the value used when the setting is not given: the value in
   `data/rabbit/Rabbit_demography_values.txt` for the demographic rates, otherwise the default in
@@ -14,39 +15,74 @@ calibration estimates. **TODO** marks a cell we don't have enough information to
 
 **Contents**
 
-- [Command line arguments](#command-line-arguments)
-- [Demographic rates file](#demographic-rates-file)
-- [RHD settings file](#rhd-settings-file)
+- [Passing settings](#passing-settings)
+- [Run settings](#run-settings)
+- [Demographic rates](#demographic-rates)
+- [RHD settings](#rhd-settings)
 - [Habitat and dispersal parameters (calibrated)](#habitat-and-dispersal-parameters-calibrated)
+- [Deciding the default RHD mode](#deciding-the-default-rhd-mode)
 - [Fixed in the code](#fixed-in-the-code)
 - [Known issues](#known-issues)
 
-## Command line arguments
+## Passing settings
 
-The program is called as
-`Rabbit_x86_64-win64.exe <1> <2> ... <14>`; `run_simulation()` and `model_fn()` in
-`rabbit/functions` build this call.
+Every setting in this document has a name, and every setting can be given in any of these places;
+**later wins**:
 
-| # | Name | Meaning | Default | Range | Notes |
-| --- | --- | --- | --- | --- | --- |
-| 1 | `output_dir` | Folder for the output (`maps/`, RHD logs). Created if missing. | required | path | |
-| 2 | `start_year` | First simulated year; the simulation starts in January. | required | year | The first year is spin‑up (the population starts at carrying capacity). |
-| 3 | `end_year` | Last simulated year; the simulation runs to December. | required | ≥ `start_year` | |
-| 4 | `paramname_rabbit` | Demographic rates file (see below). | required | path | |
-| 5 | `mapname_rabbit` | Static habitat map (carrying capacity per cell), used when argument 6 is `0`. | required | path | The R code passes the K map file here as well; it is not used then. |
-| 6 | `habitat_folder` | Carrying capacity per month: `0` = the static map of argument 5; a folder with one `<year>_<month>.txt` map per month; or one binary `K_maps.kbin` file with all months. | required | `0`, folder or file | The binary file is what `create_K_map_gaussian()` writes. Months after the last stored one reuse the last month. |
-| 7 | `climate_folder` | Folder with `breeding_months_<year>.txt` and `consecutive_dry_months_<year>.txt` per year. | required | path | Written by `calculate_BM_cDM()`. |
-| 8 | `create_all_month_maps` | `1` = write a population map for every month. | `0` | `0` or `1` | Census-month maps are always written (see [Fixed in the code](#fixed-in-the-code)). |
-| 9 | `rabbit_start_file` | `0` = start with as many rabbits per cell as the carrying capacity of the first month; otherwise a map with the starting number of rabbits per cell. | required | `0` or path | Starting rabbits get a random age of 0–11 months. |
-| 10 | `dens_opt` | Dispersal: preferred number of rabbits in the destination cell. | value in the demographic rates file (3) | 3–20 (calibration prior) | Overrides the file value. Before the fix on branch `rhd-immunity` it had no effect (see [Known issues](#known-issues)). |
-| 11 | `lambda` | Dispersal: how strongly rabbits avoid cells far from `dens_opt`. | value in the file (0.1) | 0.2–0.5 (calibration prior) | As for argument 10. |
-| 12 | `sigma` | Dispersal: how quickly the chance of moving falls with distance. | value in the file (2.5) | 2–4 (calibration prior) | As for argument 10. |
-| 13 | `seed` | Random seed; the same seed and inputs give the same output. | `-1` (no fixed seed) | integer; `-1` = none | Needs arguments 10–12. |
-| 14 | `rhd_settings` | RHD settings file (see below); `0` = none. | `0` | `0` or path | Needs arguments 10–13. Without it the disease runs in `schedule` mode with the settings of the demographic rates file. |
+1. the default in the program code (`general_define_units.pas`)
+2. the **rates file**, `--rates_file=<file>` (required): `data/rabbit/Rabbit_demography_values.txt`
+3. **settings files**, `--settings=<file>`: can be repeated, read in the order given (e.g. an RHD
+   scenario, a test case)
+4. **`--name=value`** on the command line
 
-## Demographic rates file
+```
+Rabbit_x86_64-win64.exe --output_dir=sim --start_year=2017 --end_year=2024
+  --rates_file=Rabbit_demography_values.txt --habitat_folder=K_maps.kbin --climate_folder=clim
+  --dens_opt=7 --lambda=0.3 --sigma=2.8 --seed=42 --RHD_mode=immunity --RHD_spread=0.3
+```
 
-`data/rabbit/Rabbit_demography_values.txt`, one `name value` pair per line. Ages are in months.
+- Files have one `name value` pair per line; empty lines, lines starting with `#` and anything
+  after whitespace + `#` are skipped.
+- **Unknown names stop the program** (with a suggestion for the closest name), in files and on the
+  command line. So do values that are not valid, values outside their valid range, a name given
+  twice in one file or twice on the command line, and missing required settings.
+- Numbers always use `.` as decimal mark, whatever the Windows language setting.
+- `rates_file` and `settings` can only be given on the command line.
+- `--version` prints `settings_interface 2` (the R code checks this with `check_rabbit_model()`);
+  `--help` lists all settings with their type, valid range and default.
+- The program prints every setting given on the command line, and every setting a later file
+  overrode (`Setting RHD_spread = 0.3 (command line; was 0.2 from …)`), and writes all settings to
+  `settings_used.txt` in `output_dir`. A run can be repeated with
+  `--rates_file=settings_used.txt --output_dir=<new folder>`.
+- In R, `rabbit_model_args()` (`rabbit/functions/rabbit_model_args.R`) turns a named list into these
+  arguments, and `model_param_settings()` turns calibrated parameters (`R_lambda`, `log10_RHD_spark`,
+  `RHDMort`, …) into setting names.
+
+**Deprecated: positional arguments.** When the first argument does not start with `--`, the old
+form of 9 to 14 positional arguments is still accepted, with a warning: 1 `output_dir`,
+2 `start_year`, 3 `end_year`, 4 `rates_file`, 5 `mapname_rabbit`, 6 `habitat_folder`,
+7 `climate_folder`, 8 `create_all_month_maps`, 9 `rabbit_start_file`, 10 `dens_opt`, 11 `lambda`,
+12 `sigma`, 13 `seed`, 14 `settings` (`0` = none). They count as command line values, and give
+output identical to the old program. Positional and named arguments cannot be mixed. This form will
+be removed once the R code and the LifeWatch components use named arguments.
+
+## Run settings
+
+| Name | Meaning | Default | Valid | Notes |
+| --- | --- | --- | --- | --- |
+| `output_dir` | Folder for the output (`maps/`, RHD logs, `settings_used.txt`). Created if missing. | required | path | |
+| `start_year` | First simulated year; the simulation starts in January. | required | year | The first year is spin‑up (the population starts at carrying capacity). |
+| `end_year` | Last simulated year; the simulation runs to December. | required | ≥ `start_year` | |
+| `habitat_folder` | Carrying capacity per month: a binary `K_maps.kbin` file with all months; a folder with one `<year>_<month>.txt` map per month; or `0` = the static map `mapname_rabbit`. | `0` | file, folder or `0` | The binary file is what `create_K_map_gaussian()` writes. Months after the last stored one reuse the last month. |
+| `mapname_rabbit` | Static habitat map (carrying capacity per cell). | – | path | Required when `habitat_folder` is `0`. |
+| `climate_folder` | Folder with `breeding_months_<year>.txt` and `consecutive_dry_months_<year>.txt` per year. | required | path | Written by `calculate_BM_cDM()`. |
+| `create_all_month_maps` | `1` = write a population map for every month. | `0` | `0`/`1` | Census-month maps are always written (see [Fixed in the code](#fixed-in-the-code)). |
+| `rabbit_start_file` | `0` = start with as many rabbits per cell as the carrying capacity of the first month; otherwise a map with the starting number of rabbits per cell. | `0` | `0` or path | Starting rabbits get a random age of 0–11 months. |
+| `seed` | Random seed; the same seed and settings give the same output. | `-1` (none) | integer ≥ −1 | |
+
+## Demographic rates
+
+In the rates file (`data/rabbit/Rabbit_demography_values.txt`; all of these are required). Ages are in months.
 Rates are applied per cell per month, in this order: RHD, reproduction, survival, ageing; then
 dispersal over the whole map. `Kdens` is the number of rabbits in a cell divided by its carrying
 capacity that month.
@@ -59,7 +95,7 @@ capacity that month.
 | `old_age` | From this age, reproduction gets the `r_later_effect` instead. | months | 9 | TODO | |
 | `disp_age` | Rabbits disperse in the month they reach this age. | months | 4 | TODO | Also the reference for `RHD_min_age`. |
 | `MeanLitSize` | Mean litter size. Litters are 1 + Poisson(`MeanLitSize` − 1): at least one kit, mean `MeanLitSize`, variance `MeanLitSize` − 1 (SD 1.58 at 3.5). | kits | 3.5 | about 3.5–3.9: 3.90 embryos per female in wild *O. c. algirus*, southern Portugal (Gonçalves et al. 2002); births are somewhat fewer than embryos. TODO: choose | Species‑wide 4–6 at the height of the breeding season, 3–4 at its start and end. |
-| `MinLitSize`, `MaxLitSize` | Smallest and largest litter; draws outside are set to these limits. | kits | 1, 9 | species range 3–9 young | Before: `SdLitSize` (not in the file, so 0) limited every litter to exactly 4. `SdLitSize` is no longer used. |
+| `MinLitSize`, `MaxLitSize` | Smallest and largest litter; draws outside are set to these limits. | kits | 1, 9 | species range 3–9 young | Optional (code default 1, 9). Before: `SdLitSize` (not in the file, so 0) limited every litter to exactly 4. `SdLitSize` no longer exists, so it is now an unknown name. |
 | `r_int` | Reproduction: intercept (logit) of the monthly chance that a non‑pregnant female from `young_age` conceives, in a breeding month. | logit | −2 | TODO | Chance = logistic(`r_int` + age effect − `r_dens_effect` × `Kdens`). Pregnancy and lactation take one month each. |
 | `r_dens_effect` | Reproduction: decrease with `Kdens`. | logit per unit `Kdens` | 3 | TODO | |
 | `r_second_effect` | Reproduction: extra for females from `adult_age`. | logit | 1 | TODO | |
@@ -69,20 +105,28 @@ capacity that month.
 | `s_extra_juv` | Survival: lower for juveniles (below `young_age`). | logit | 3 | TODO | |
 | `s_dens_effect` | Survival: decrease with `Kdens`. | logit per unit `Kdens` | 3 | TODO | |
 | `s_food_effect` | Survival: effect of the number of consecutive dry months (food shortage). | – | 20 | TODO | Larger = less effect of drought. |
-| `lambda` | Dispersal, see argument 11. | – | 0.1 | see argument 11 | Overridden by argument 11. |
-| `dens_opt` | Dispersal, see argument 10. | rabbits per cell | 3 | see argument 10 | Overridden by argument 10. Read as a whole number. |
-| `sigma` | Dispersal, see argument 12. | – | 2.5 | see argument 12 | Overridden by argument 12. |
+| `dens_opt` | Dispersal: preferred number of rabbits in the destination cell. | rabbits per cell | 3 | 3–20 (calibration prior) | Must be a whole number. The calibration passes it per run. Before the fix on branch `rhd-immunity` command line values had no effect (see [Known issues](#known-issues)). |
+| `lambda` | Dispersal: how strongly rabbits avoid cells far from `dens_opt`. | – | 0.1 | 0.2–0.5 (calibration prior) | R calls it `R_lambda`. |
+| `sigma` | Dispersal: how quickly the chance of moving falls with distance. | – | 2.5 | 2–4 (calibration prior) | R calls it `R_sigma`. |
 | `RHDFreq_L`, `RHDFreq_U` | RHD `schedule` mode: each cell gets an outbreak every L–U months (drawn once per cell). | months | 24, 36 | TODO | Only used in `schedule` mode. |
-| `RHDMort_L`, `RHDMort_U` | RHD `schedule` mode: share of rabbits older than `adult_age` killed per outbreak, drawn once per cell between L and U. | probability | 0.15, 0.25 | 0–1 (valid) | Only used in `schedule` mode. |
-| `mapname_rabbit` | Optional: overrides argument 5. | path | not set | path | Read after the command line, so it wins over argument 5. |
-| `climate_folder` | Optional: overrides argument 7. | path | not set | path | As above. |
+| `RHDMort_L`, `RHDMort_U` | RHD `schedule` mode: share of rabbits older than `adult_age` killed per outbreak, drawn once per cell between L and U. | probability | 0.15, 0.25 | 0–1 (valid); calibration prior 0.1–0.9 | Only used in `schedule` mode. The calibration in schedule mode estimates one value, `RHDMort`, for both. |
 
-## RHD settings file
+## RHD settings
 
-Command line argument 14; written by `write_rhd_settings()` (`rabbit/functions/rhd_settings.R`).
-One `name value` pair per line; empty lines and lines starting with `#` are skipped, and an unknown
-name stops the program. The R defaults (`rhd_default_settings()`) are the same as the program's,
+In the rates file (with `RHD_mode schedule` until the [comparison](#deciding-the-default-rhd-mode)),
+a `--settings` file, or as `--name=value`. `write_rhd_settings()` (`rabbit/functions/rhd_settings.R`)
+writes a settings file; the R defaults (`rhd_default_settings()`) are the same as the program's,
 except `RHD_mode` (`immunity`), `RHD_spark` (0.002) and `RHD_spread` (0.2).
+
+**Arrival dates: a manual first outbreak.** With an arrival year of 0 (default) the strain is present
+from the start: each cell starts with an immune share between `RHD_init_immune_lo` and `_hi`, so the
+population is already mid-cycle. With an arrival date after the start (e.g. `RHD2_arrival_year 2019`,
+`RHD2_arrival_month 4`) there is no disease and no immunity until then; in that month the virus
+reaches `RHD_seed_share` of the occupied cells, and from then on the normal immunity process runs.
+An arrival year up to `start_year` (date not after the start) also means present from the start.
+**Setting only `RHD1_arrival_year` while `RHD2_arrival_year` is 0 has no effect**: RHDV2 is then
+present from the start (`SetupRHD`, `rabbit_population_dynamics.pas`). Set `RHD2_arrival_year` too
+(its arrival year, or 9999 = never). The program warns about these cases.
 
 | Name | Meaning | Unit | Default (program) | Range | Notes |
 | --- | --- | --- | --- | --- | --- |
@@ -105,7 +149,8 @@ except `RHD_mode` (`immunity`), `RHD_spark` (0.002) and `RHD_spread` (0.2).
 ## Habitat and dispersal parameters (calibrated)
 
 Not read by the Pascal program directly: the habitat parameters set the carrying capacity maps
-(`create_K_map_gaussian()`), and the dispersal ones are passed as arguments 10–12. Ranges are the
+(`create_K_map_gaussian()`), and the dispersal ones are passed as `--dens_opt`, `--lambda` and
+`--sigma`. Ranges are the
 priors in `rabbit/Workflow_calibration.R`; estimates are in `rabbit/results/posterior_samples.csv`.
 
 | Name | Meaning | Unit | Default | Range (prior) | Notes |
@@ -115,7 +160,37 @@ priors in `rabbit/Workflow_calibration.R`; estimates are in `rabbit/results/post
 | `ndvi_sd_opt`, `ndvi_sd_sigma` | As above, for the within‑cell SD of NDVI. | NDVI | – | 0.1–0.9, 0.01–0.5 | |
 | `height_opt`, `height_sigma` | As above, for vegetation height. | TODO (probably m) | – | 0–2, 0.01–1 | |
 | `ndvi_w`, `ndvi_sd_w`, `height_w` | Weights of the three suitabilities (normalised to sum to 1). | – | – | 0–1 each | |
-| `dens_opt`, `R_lambda`, `R_sigma` | Dispersal, arguments 10–12. | | | 3–20, 0.2–0.5, 2–4 | The current posterior was estimated while these had no effect (see [Known issues](#known-issues)). |
+| `dens_opt`, `R_lambda`, `R_sigma` | Dispersal settings `dens_opt`, `lambda`, `sigma`. | | | 3–20, 0.2–0.5, 2–4 | The current posterior was estimated while these had no effect (see [Known issues](#known-issues)). |
+| `RHD_f_crit`, `log10_RHD_spark`, `RHD_spread`, `RHD_mortality` | RHD settings, calibrated in `immunity` mode (`log10_RHD_spark` on the log10 scale). | | | 0.2–0.9, −4 to −1.5, 0–1, 0.3–0.9 | |
+| `RHDMort` | Calibrated in `schedule` mode: sets `RHDMort_L` = `RHDMort_U`. | probability | | 0.1–0.9 | |
+
+## Deciding the default RHD mode
+
+`RHD_mode` stays explicit (`schedule`) in the rates file until the three modes are compared. Make
+`immunity` the default only if it fits the observed KAI better than `schedule` (and `none`).
+
+- **Same setup for every mode:** the same censuses and period (2017–2024), spin-up, drivers, priors
+  of the 13 shared parameters, `nb_simul` (300), `p_acc_min` (0.05) and seeds. Calibrate on the two
+  shared KAI statistics only (median r and median r of the changes over the transects): calibration
+  component `rhdMode = none / schedule / immunity` with `rhdStatistic = FALSE`. Schedule calibrates
+  its mortality (`RHDMort`, prior 0.1–0.9) with the 24–36 month interval of the rates file;
+  immunity calibrates its 4 settings.
+- **Not the final ABC tolerance:** each run scales its distances by its own first sample, so they
+  cannot be compared between runs.
+- **Posterior predictive fit:** 200 parameter sets per posterior (by weight) × 3 fixed seeds, the
+  same seeds for every mode; compare median r, median r of changes and scaled RMSE, with bootstrap
+  95 % intervals of the differences.
+- **Held-out year** (immunity has 4 extra parameters, so it could fit better by overfitting):
+  calibrate to 2023, predict 2024; score the scaled error, the sign of the change 2023 → 2024 per
+  transect, and the correlation across transects. Weak with one census year; say so.
+- **Demographic noise:** 50 seeds at the posterior mean of each mode; a difference between modes
+  counts only if it is larger than this spread.
+- **Decision:** `immunity` becomes the default if it is better than `schedule` in-sample (interval
+  of the difference excludes 0) and not worse on the held-out year. Otherwise `schedule` stays.
+  Then change the default in the code, both rates files and `rhd_default_settings()` together, and
+  record the result here.
+
+`rabbit/compare_rhd_modes.R` runs this comparison.
 
 ## Fixed in the code
 
@@ -125,7 +200,7 @@ priors in `rabbit/Workflow_calibration.R`; estimates are in `rabbit/results/post
 | Neighbours for `RHD_spread` | the 8 surrounding cells | `RHDStep` in `rabbit_vital_rates.pas` |
 | Population maps written | months 3, 6 and 9 of every year, and every month of 2017, 2018, 2023 and 2024 | `Rabbit_calibration.lpr` |
 | Map values below 0 (e.g. −9999 for the sea) | read as 0 (no habitat) | `ReadMap` in `general_functions.pas` |
-| Start population | carrying capacity of the first month (or argument 9), random ages 0–11 months, half female | `Startpopulation_rabbit` |
+| Start population | carrying capacity of the first month (or `rabbit_start_file`), random ages 0–11 months, half female | `Startpopulation_rabbit` |
 
 ## Known issues
 
@@ -135,3 +210,6 @@ priors in `rabbit/Workflow_calibration.R`; estimates are in `rabbit/results/post
 | RHD `schedule` mode only set up cells with carrying capacity above 0 in the first month. | Other cells never had outbreaks. | Fixed on branch `rhd-immunity`. |
 | `SdLitSize` was not in the demographic rates file, and litters were limited to mean ± 2 × `SdLitSize`. | Every litter had exactly 4 kits. | Fixed on branch `rhd-immunity`: litters are now a shifted Poisson limited to `MinLitSize`–`MaxLitSize` (1–9). |
 | `model_fn()` returns the failure value when a transect's observed KAI does not vary (SD 0) in the calibration period. | Such runs are rejected even though that statistic is not used. | Open; only a problem for short calibration periods. |
+| The rates file was read with `StrToFloat`, which uses the Windows decimal mark. | On a Windows with a decimal comma (e.g. Spanish), `0.15` could not be read. | Fixed on branch `named-model-settings`: all numbers are read with `Val` (always `.`). |
+| The rates file reader ignored unknown and misspelled names, and rates missing from the file were silently 0. | A typing error went unnoticed. | Fixed on branch `named-model-settings`: unknown names and missing required settings stop the program. |
+| On an error the console version waited for a key press (`Readln` in `ShowErrorAndExit`). | A run started from R could hang until its timeout. | Fixed on branch `named-model-settings`: the error goes to stderr and the program exits with code 1. |
