@@ -9,8 +9,6 @@ uses
   general_functions, general_define_units;
 
 procedure ReadClim;
-procedure ReadParameters_Rabbit(paramname: string);
-procedure ReadParameters_RHD(paramname: string);
 procedure OpenRHDLogs;
 procedure CloseRHDLogs;
 procedure WriteRHDOutbreak(x, y, n_age, n_susceptible, deaths: integer);
@@ -101,123 +99,6 @@ SetLength(DryMonths_xy, Mapdimx + 1, Mapdimy + 1, 13);
   
   CloseFile(C);
 
-end;
-
-procedure ReadParameters_Rabbit(paramname: string);
-var
-  LineSplit: TStringArray;
-  Line: string;
-  r, spacePos: integer;
-  a, param: string;
-  value: real;
-begin
-
- Assign(filename, ExpandFileName(paramname));
-  reset(filename);
-
-  while not EOF(filename) do
-  begin
-    ReadLn(filename, Line);
-    LineSplit := Line.Split(' ');
-
-    if (LineSplit[0] = 'max_age') then R_max_age := StrToInt(LineSplit[1])
-    else if (LineSplit[0] = 'young_age') then R_young_age := StrToInt(LineSplit[1])
-    else if (LineSplit[0] = 'adult_age') then R_adult_age := StrToInt(LineSplit[1])
-    else if (LineSplit[0] = 'old_age') then R_old_age := StrToInt(LineSplit[1])
-    else if (LineSplit[0] = 'disp_age') then R_disp_age := StrToInt(LineSplit[1])
-    else if (LineSplit[0] = 'MeanLitSize') then R_MeanLitSize := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 'SdLitSize') then R_SdLitSize := StrToFloat(LineSplit[1])   // no longer used
-    else if (LineSplit[0] = 'MinLitSize') then R_MinLitSize := StrToInt(LineSplit[1])
-    else if (LineSplit[0] = 'MaxLitSize') then R_MaxLitSize := StrToInt(LineSplit[1])
-    else if (LineSplit[0] = 'r_int') then R_r_int := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 'r_dens_effect') then R_r_dens_effect := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 'r_second_effect') then R_r_second_effect := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 'r_later_effect') then R_r_later_effect := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 'RHDFreq_L') then RHDFreq_L := StrToInt(LineSplit[1])
-    else if (LineSplit[0] = 'RHDFreq_U') then RHDFreq_U := StrToInt(LineSplit[1])
-    else if (LineSplit[0] = 'RHDMort_L') then RHDMort_L := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 'RHDMort_U') then RHDMort_U := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 'MortP_at_month_old') then R_MortP_at_month_old := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 's_int') then R_s_int := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 's_extra_juv') then R_s_extra_juv := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 's_dens_effect') then R_s_dens_effect := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 's_food_effect') then R_s_food_effect := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 'lambda') then R_lambda := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 'dens_opt') then R_dens_opt := StrToInt(LineSplit[1])
-    else if (LineSplit[0] = 'sigma') then R_sigma := StrToFloat(LineSplit[1])
-    else if (LineSplit[0] = 'mapname_rabbit') then mapname_rabbit := LineSplit[1]
-    else if (LineSplit[0] = 'climate_folder') then climate_folder := LineSplit[1]
-   end;
-
-end;
-
-{RHD settings file: one "key value" pair per line; empty lines and lines starting with # are skipped.
- Unknown keys stop the program, so that a typing error is not silently ignored.}
-procedure ReadParameters_RHD(paramname: string);
-var
-  F: TextFile;
-  LineSplit: TStringArray;
-  Line, key, value: string;
-  code: integer;
-
-  function AsReal: real;
-  begin
-    Val(value, Result, code);
-    if code <> 0 then ShowErrorAndExit('RHD settings: "' + value + '" is not a number (' + key + ')');
-  end;
-
-  function AsInt: integer;
-  begin
-    Val(value, Result, code);
-    if code <> 0 then ShowErrorAndExit('RHD settings: "' + value + '" is not a whole number (' + key + ')');
-  end;
-
-begin
-  AssignFile(F, ExpandFileName(paramname));
-  Reset(F);
-
-  while not EOF(F) do
-  begin
-    ReadLn(F, Line);
-    Line := Trim(Line);
-    if (Line = '') or (Line[1] = '#') then Continue;
-    LineSplit := Line.Split([' ', #9], TStringSplitOptions.ExcludeEmpty);
-    if Length(LineSplit) < 2 then ShowErrorAndExit('RHD settings: no value for "' + Line + '"');
-    key := LineSplit[0];
-    value := LineSplit[1];
-
-    if key = 'RHD_mode' then
-    begin
-      if value = 'none' then RHD_mode := RHD_MODE_NONE
-      else if value = 'schedule' then RHD_mode := RHD_MODE_SCHEDULE
-      else if value = 'immunity' then RHD_mode := RHD_MODE_IMMUNITY
-      else ShowErrorAndExit('RHD settings: RHD_mode must be none, schedule or immunity, not ' + value);
-    end
-    else if key = 'RHD_min_age' then RHD_min_age := AsInt
-    else if key = 'RHD_f_crit' then RHD_f_crit := AsReal
-    else if key = 'RHD_f_slope' then RHD_f_slope := AsReal
-    else if key = 'RHD_spark' then RHD_spark := AsReal
-    else if key = 'RHD_spread' then RHD_spread := AsReal
-    else if key = 'RHD_mortality' then RHD_mortality := AsReal
-    else if key = 'RHD2_mortality' then RHD2_mortality := AsReal
-    else if key = 'RHD1_arrival_year' then RHD1_arrival_year := AsInt
-    else if key = 'RHD1_arrival_month' then RHD1_arrival_month := AsInt
-    else if key = 'RHD2_arrival_year' then RHD2_arrival_year := AsInt
-    else if key = 'RHD2_arrival_month' then RHD2_arrival_month := AsInt
-    else if key = 'RHD_seed_share' then RHD_seed_share := AsReal
-    else if key = 'RHD2_cross_immunity' then RHD2_cross_immunity := AsReal
-    else if key = 'RHD_init_immune_lo' then RHD_init_immune_lo := AsReal
-    else if key = 'RHD_init_immune_hi' then RHD_init_immune_hi := AsReal
-    else if key = 'RHD_log' then RHD_log := (value = '1') or (LowerCase(value) = 'true')
-    {the settings of the schedule mode can also be given here}
-    else if key = 'RHDFreq_L' then RHDFreq_L := AsInt
-    else if key = 'RHDFreq_U' then RHDFreq_U := AsInt
-    else if key = 'RHDMort_L' then RHDMort_L := AsReal
-    else if key = 'RHDMort_U' then RHDMort_U := AsReal
-    else ShowErrorAndExit('RHD settings: unknown setting "' + key + '"');
-  end;
-
-  CloseFile(F);
 end;
 
 procedure OpenRHDLogs;

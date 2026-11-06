@@ -9,58 +9,32 @@ uses
   {$ENDIF}
   Classes, SysUtils,
   general_functions, general_define_units,
-  rabbit_population_dynamics, rabbit_input_output_functions;
+  rabbit_population_dynamics, rabbit_input_output_functions, rabbit_settings;
 
 {$R *.res}
 var
-  LineSplit: TStringArray;
-  settings_file, Line: string;
-  x,y: integer;
   use_kmap_file: boolean;
-  cli_dispersal: boolean = False;
-  cli_dens_opt, cli_lambda, cli_sigma: real;
 
 begin
   randomize; {initialize the pseudorandom number generator}
 
-  output_dir := ParamStr(1);
-  start_year := StrToInt(ParamStr(2));
-  end_year := StrToInt(ParamStr(3));
-  paramname_rabbit := ParamStr(4);
-  mapname_rabbit := ParamStr(5);
-  habitat_folder := ParamStr(6);
-  climate_folder := ParamStr(7);
+  {All settings: code defaults < rates file < --name=value on the command line.
+   See rabbit/rabbit_settings.pas and model_settings.md}
+  RegisterSettings;
+  LoadAllSettings;
+  CheckSettings;
+  LogSettings;
 
-  if (ParamStr(8) = '1') then
-      create_all_month_maps := True;
-
-  {Argument 9: '0' = initialise from the carrying capacity map, otherwise the path to a start-population map}
-  rabbit_start_file := ParamStr(9);
-
-  {Dispersal parameters of the current run (arguments 10-12). They are applied after the parameter
-   file is read, which also holds lambda, dens_opt and sigma; before, the file values overwrote
-   these and the command line values had no effect.}
-  if ParamCount > 9 then
+  {No random numbers are drawn while the settings are read, so a fixed seed gives the same
+   output as with the positional arguments before}
+  if seed <> -1 then
   begin
-   cli_dispersal := True;
-   cli_dens_opt := StrToInt(ParamStr(10));
-   Val(Trim(ParamStr(11)), cli_lambda);
-   Val(Trim(ParamStr(12)), cli_sigma);
-  end;
-
-  {Optional argument 13: random seed, to make a run reproducible (-1 = no fixed seed)}
-  if (ParamCount > 12) and (StrToInt(ParamStr(13)) <> -1) then
-  begin
-    RandSeed := StrToInt(ParamStr(13));
+    RandSeed := seed;
     WriteLn('Random seed = ' + IntToStr(RandSeed));
   end;
 
-  {Optional argument 14: RHD settings file ('0' = none; see docs/model_settings.md)}
-  if ParamCount > 13 then
-    rhd_settings_file := ParamStr(14);
-
-
-mapname_rabbit := ExpandFileName(mapname_rabbit);
+if mapname_rabbit <> '' then
+  mapname_rabbit := ExpandFileName(mapname_rabbit);
 climate_folder := ExpandFileName(climate_folder);
 
 if not (habitat_folder = '0') then
@@ -79,27 +53,6 @@ WriteLn('climate_folder = ' + climate_folder);
 WriteLn('habitat_folder = ' + habitat_folder);
 
 n_years := (end_year - start_year) + 1;
-
-WriteLn('Reading Rabbit parameters');
-paramname_rabbit := ExpandFileName(paramname_rabbit);
-ReadParameters_Rabbit(paramname_rabbit);
-
-if cli_dispersal then
-begin
-  R_dens_opt := cli_dens_opt;
-  R_lambda := cli_lambda;
-  R_sigma := cli_sigma;
-  WriteLn('Dispersal parameters from the command line: dens_opt=' + FloatToStr(R_dens_opt) +
-          ', lambda=' + FloatToStr(R_lambda) + ', sigma=' + FloatToStr(R_sigma));
-end;
-
-if rhd_settings_file <> '0' then
-begin
-  rhd_settings_file := ExpandFileName(rhd_settings_file);
-  WriteLn('Reading RHD settings: ' + rhd_settings_file);
-  ReadParameters_RHD(rhd_settings_file);
-end;
-
 
 
 {Setting up the spatial and output variables}
