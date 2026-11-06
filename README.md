@@ -24,7 +24,8 @@ no GUI library. Errors are written to standard error, and the program exits with
 
 Run the commands from this folder. They write the executable to `programs/` and the compiled units
 to `lib/<cpu>-<os>/`. After a code change, rebuild and commit the executables for every platform,
-so that R and the executables stay in step.
+so that R and the executables stay in step. `programs/` is in `.gitignore`, so stage rebuilt
+executables with `git add -f programs/<file>`.
 
 ### Windows
 
