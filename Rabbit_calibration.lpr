@@ -18,7 +18,7 @@ var
 begin
   randomize; {initialize the pseudorandom number generator}
 
-  {All settings: code defaults < rates file < --settings files < --name=value on the command line.
+  {All settings: code defaults < rates file < --name=value on the command line.
    See rabbit/rabbit_settings.pas and model_settings.md}
   RegisterSettings;
   LoadAllSettings;

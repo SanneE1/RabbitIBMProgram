@@ -48,7 +48,7 @@ const
 
 var
   {Simulation info. All settings are set through the registry in rabbit/rabbit_settings.pas
-   (rates file, --settings files, --name=value); see model_settings.md}
+   (rates file, --name=value); see model_settings.md}
   current_year, n_years, start_year, end_year, month: integer;
   output_dir: string;
   habitat_folder: string = '0';
@@ -84,7 +84,7 @@ var
   tot_m: longint;
 
   {Rabbit - Disease mechanism (immunity mode). Defaults below; set in the rates file, a
-   --settings file or on the command line. See model_settings.md}
+   on the command line (--name=value). See model_settings.md}
   RHD_mode: integer = RHD_MODE_SCHEDULE;
   RHD_min_age: integer = 3;          // minimum age (months, before this month's ageing) to be susceptible
   RHD_f_crit: real = 0.5;            // susceptible share at which an exposed cell has a 50% outbreak chance

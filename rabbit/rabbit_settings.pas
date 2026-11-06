@@ -1,8 +1,8 @@
 unit rabbit_settings;
 
 {All settings of the rabbit model in one registry: each setting has a name, a type, a valid
- range and the variable it sets. The rates file, any extra settings files and the command line
- all go through SetSetting, so they share one code path and the same checks.
+ range and the variable it sets. The rates file and the command line both go through
+ SetSetting, so they share one code path and the same checks.
 
  Command line (settings interface 2): every argument is --name=value, e.g.
    Rabbit --output_dir=sim --start_year=2017 --end_year=2024 --rates_file=rates.txt
@@ -11,17 +11,17 @@ unit rabbit_settings;
  Order of precedence (later wins):
    1. defaults in the code (general_define_units)
    2. the rates file (--rates_file, required)
-   3. --settings=<file>, can be repeated, read in the order given
-   4. every other --name=value on the command line
+   3. every other --name=value on the command line
 
- Files have one "name value" pair per line; empty lines, lines starting with # and anything after
- whitespace + # are skipped.
+ The rates file has one "name value" pair per line; empty lines, lines starting with # and
+ anything after whitespace + # are skipped.
  Unknown names, values that are not valid, values outside their range and a name given twice
- in the same file (or twice on the command line) stop the program. Numbers always use '.' as
+ in the file (or twice on the command line) stop the program. Numbers always use '.' as
  decimal mark, whatever the locale.
 
  The old positional arguments (1-14) are still accepted, with a warning, when the first argument
- does not start with --. See model_settings.md.}
+ does not start with --; there, argument 14 is still an RHD settings file, read after the rates
+ file. See model_settings.md.}
 
 {$mode ObjFPC}{$H+}
 
@@ -63,7 +63,7 @@ var
   Settings: array of TSetting;
   FmtDot: TFormatSettings;
   rates_file_arg: string = '';
-  settings_files: array of string;
+  legacy_rhd_file: string = '';   // positional argument 14 (deprecated form only)
   cmd_names, cmd_values: array of string;
   legacy_args: boolean = False;
 
@@ -242,8 +242,8 @@ var
   rv: real;
   v, before: string;
 begin
-  if (AName = 'rates_file') or (AName = 'settings') then
-    Fail('"' + AName + '" can only be given on the command line (--' + AName + '=...), not in ' + ASource);
+  if AName = 'rates_file' then
+    Fail('"rates_file" can only be given on the command line (--rates_file=...), not in ' + ASource);
 
   idx := FindSetting(AName);
   if idx < 0 then
@@ -354,9 +354,8 @@ begin
   WriteLn;
   WriteLn('Usage: every argument is --name=value. Command line only:');
   WriteLn('  --rates_file=<file>   rates file (required): "name value" lines, any setting below');
-  WriteLn('  --settings=<file>     extra settings file, can be repeated; read after the rates file');
   WriteLn('  --version, --help');
-  WriteLn('Later wins: code defaults < rates file < settings files < other --name=value.');
+  WriteLn('Later wins: code defaults < rates file < other --name=value.');
   g := '';
   for i := 0 to High(Settings) do
     with Settings[i] do
@@ -386,14 +385,9 @@ begin
     rates_file_arg := AValue;
     Exit;
   end;
-  if AName = 'settings' then
+  if (AName = 'legacy_rhd_file') and legacy_args then   // positional argument 14 only
   begin
-    if AValue <> '0' then
-    begin
-      n := Length(settings_files);
-      SetLength(settings_files, n + 1);
-      settings_files[n] := AValue;
-    end;
+    if AValue <> '0' then legacy_rhd_file := AValue;
     Exit;
   end;
   for i := 0 to High(cmd_names) do
@@ -410,7 +404,7 @@ procedure ReadLegacyArguments;
 const
   NAMES: array[1..14] of string = ('output_dir', 'start_year', 'end_year', 'rates_file',
     'mapname_rabbit', 'habitat_folder', 'climate_folder', 'create_all_month_maps',
-    'rabbit_start_file', 'dens_opt', 'lambda', 'sigma', 'seed', 'settings');
+    'rabbit_start_file', 'dens_opt', 'lambda', 'sigma', 'seed', 'legacy_rhd_file');
 var
   i: integer;
 begin
@@ -444,6 +438,8 @@ begin
     if body = 'help' then begin PrintHelp; Halt(0); end;
     p := Pos('=', body);
     if p = 0 then Fail('Argument "' + arg + '" has no value; use --name=value');
+    if Copy(body, 1, p - 1) = 'settings' then
+      Fail('--settings is not supported: put settings in the rates file, or override them as --name=value');
     AddCommandValue(Copy(body, 1, p - 1), Copy(body, p + 1, MaxInt));
   end;
 end;
@@ -463,10 +459,10 @@ begin
 
   if rates_file_arg = '' then Fail('--rates_file is required');
 
-  {2. rates file, 3. extra settings files, 4. the command line}
+  {2. the rates file (positional form: then the RHD file of argument 14), 3. the command line}
   ReadSettingsFile(ExpandFileName(rates_file_arg));
-  for i := 0 to High(settings_files) do
-    ReadSettingsFile(ExpandFileName(settings_files[i]));
+  if legacy_rhd_file <> '' then
+    ReadSettingsFile(ExpandFileName(legacy_rhd_file));
   for i := 0 to High(cmd_names) do
     SetSetting(cmd_names[i], cmd_values[i], 'command line');
 end;
@@ -534,7 +530,7 @@ begin
       end;
   WriteLn('RHD_mode = ', ValueText(Settings[FindSetting('RHD_mode')]), ', seed = ', seed);
 
-  {Every setting, so that a run can be repeated with --settings=settings_used.txt}
+  {Every setting, so that a run can be repeated with --rates_file=settings_used.txt}
   ForceDirectories(output_dir);
   AssignFile(F, IncludeTrailingPathDelimiter(output_dir) + 'settings_used.txt');
   Rewrite(F);

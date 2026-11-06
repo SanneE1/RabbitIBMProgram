@@ -26,14 +26,12 @@ estimates. **TODO** marks a cell we don't have enough information to fill in.
 
 ## Passing settings
 
-Every setting in this document has a name, and every setting can be given in any of these places;
-**later wins**:
+Every setting in this document has a name, and can be set in two places; **later wins**:
 
-1. the default in the program code (`general_define_units.pas`)
-2. the **rates file**, `--rates_file=<file>` (required): `data/rabbit/Rabbit_demography_values.txt`
-3. **settings files**, `--settings=<file>`: can be repeated, read in the order given (e.g. an RHD
-   scenario, a test case)
-4. **`--name=value`** on the command line
+1. the **rates file**, `--rates_file=<file>` (required): `data/rabbit/Rabbit_demography_values.txt`,
+   on top of the defaults in the program code (`general_define_units.pas`)
+2. **`--name=value`** on the command line, to override the file for a run (calibrated parameters,
+   scenarios, test cases, parameter uncertainty)
 
 ```
 Rabbit_x86_64-win64.exe --output_dir=sim --start_year=2017 --end_year=2024
@@ -41,17 +39,17 @@ Rabbit_x86_64-win64.exe --output_dir=sim --start_year=2017 --end_year=2024
   --dens_opt=7 --lambda=0.3 --sigma=2.8 --seed=42 --RHD_mode=immunity --RHD_spread=0.3
 ```
 
-- Files have one `name value` pair per line; empty lines, lines starting with `#` and anything
-  after whitespace + `#` are skipped.
-- **Unknown names stop the program** (with a suggestion for the closest name), in files and on the
-  command line. So do values that are not valid, values outside their valid range, a name given
-  twice in one file or twice on the command line, and missing required settings.
+- The rates file has one `name value` pair per line; empty lines, lines starting with `#` and
+  anything after whitespace + `#` are skipped.
+- **Unknown names stop the program** (with a suggestion for the closest name), in the file and on
+  the command line. So do values that are not valid, values outside their valid range, a name given
+  twice in the file or twice on the command line, and missing required settings.
 - Numbers always use `.` as decimal mark, whatever the Windows language setting.
-- `rates_file` and `settings` can only be given on the command line.
+- `rates_file` can only be given on the command line.
 - `--version` prints `settings_interface 2` (the R code checks this with `check_rabbit_model()`);
   `--help` lists all settings with their type, valid range and default.
-- The program prints every setting given on the command line, and every setting a later file
-  overrode (`Setting RHD_spread = 0.3 (command line; was 0.2 from …)`), and writes all settings to
+- The program prints every setting given on the command line, with the value it replaced
+  (`Setting RHD_spread = 0.3 (command line; was 0.2 from …)`), and writes all settings to
   `settings_used.txt` in `output_dir`. A run can be repeated with
   `--rates_file=settings_used.txt --output_dir=<new folder>`.
 - In R, `rabbit_model_args()` (`rabbit/functions/rabbit_model_args.R`) turns a named list into these
@@ -62,7 +60,8 @@ Rabbit_x86_64-win64.exe --output_dir=sim --start_year=2017 --end_year=2024
 form of 9 to 14 positional arguments is still accepted, with a warning: 1 `output_dir`,
 2 `start_year`, 3 `end_year`, 4 `rates_file`, 5 `mapname_rabbit`, 6 `habitat_folder`,
 7 `climate_folder`, 8 `create_all_month_maps`, 9 `rabbit_start_file`, 10 `dens_opt`, 11 `lambda`,
-12 `sigma`, 13 `seed`, 14 `settings` (`0` = none). They count as command line values, and give
+12 `sigma`, 13 `seed`, 14 an RHD settings file (`0` = none; read after the rates file, only in this
+form). They count as command line values, and give
 output identical to the old program. Positional and named arguments cannot be mixed. This form will
 be removed once the R code and the LifeWatch components use named arguments.
 
@@ -114,9 +113,9 @@ capacity that month.
 ## RHD settings
 
 In the rates file (with `RHD_mode schedule` until the [comparison](#deciding-the-default-rhd-mode)),
-a `--settings` file, or as `--name=value`. `write_rhd_settings()` (`rabbit/functions/rhd_settings.R`)
-writes a settings file; the R defaults (`rhd_default_settings()`) are the same as the program's,
-except `RHD_mode` (`immunity`), `RHD_spark` (0.002) and `RHD_spread` (0.2).
+overridden per run as `--name=value`. The R defaults (`rhd_default_settings()`,
+`rabbit/functions/rhd_settings.R`) are the same as the program's, except `RHD_mode` (`immunity`),
+`RHD_spark` (0.002) and `RHD_spread` (0.2); the R code passes them as `--name=value`.
 
 **Arrival dates: a manual first outbreak.** With an arrival year of 0 (default) the strain is present
 from the start: each cell starts with an immune share between `RHD_init_immune_lo` and `_hi`, so the
