@@ -5,7 +5,7 @@ unit general_functions;
 interface
 
 uses
-  Classes, SysUtils, Dialogs,
+  Classes, SysUtils,
   general_define_units;
 
 function randomPoisson(mean: real): integer;
@@ -173,14 +173,11 @@ end;
 
 procedure ShowErrorAndExit(const errMsg: string);
 begin
-  {$IFDEF LCL}
-  // If in GUI mode, use MessageDlg for graphical error display
-  MessageDlg('Error: ' + errMsg, mtError, [mbOK], 0);
-  {$ELSE}
-  // In non-GUI mode, use console output. No Readln: when the program is started by another
-  // program (e.g. R's system2) waiting for a key press would hang until a timeout.
+  // Console output only, so the program needs no GUI library and builds with
+  // plain Free Pascal on every platform. No Readln: when the program is started
+  // by another program (e.g. R's system2) waiting for a key press would hang
+  // until a timeout.
   Writeln(StdErr, 'Error: ', errMsg);
-  {$ENDIF}
 
   Halt(1);  // Exit the program with a non-zero code to indicate error
 end;
